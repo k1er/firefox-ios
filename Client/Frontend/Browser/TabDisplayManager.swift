@@ -55,7 +55,6 @@ class TabDisplayManager: NSObject {
 
     fileprivate let tabManager: TabManager
     fileprivate let collectionView: UICollectionView
-    private var tabObservers: TabObservers!
     fileprivate weak var tabDisplayer: TabDisplayer?
     private let tabReuseIdentifer: String
 
@@ -110,7 +109,7 @@ class TabDisplayManager: NSObject {
         super.init()
 
         tabManager.addDelegate(self)
-        self.tabObservers = registerFor(.didLoadFavicon, .didChangeURL, queue: .main)
+        register(self, forTabEvents: .didLoadFavicon, .didChangeURL)
 
         tabsToDisplay.forEach {
             self.dataStore.insert($0)
@@ -191,6 +190,7 @@ class TabDisplayManager: NSObject {
             collectionView.reloadItems(at: indexPaths)
         }
 
+        tabDisplayer?.focusSelectedTab()
     }
 
     // The user has tapped the close button or has swiped away the cell
@@ -205,16 +205,28 @@ class TabDisplayManager: NSObject {
         tabManager.removeTabAndUpdateSelectedIndex(tab)
     }
 
-    // Once we are done with TabManager we need to call removeObservers to avoid a retain cycle with the observers
-    func removeObservers() {
-        unregister(tabObservers)
-        tabObservers = nil
-    }
-
     private func recordEventAndBreadcrumb(object: UnifiedTelemetry.EventObject, method: UnifiedTelemetry.EventMethod) {
         let isTabTray = tabDisplayer as? TabTrayController != nil
         let eventValue = isTabTray ? UnifiedTelemetry.EventValue.tabTray : UnifiedTelemetry.EventValue.topTabs
         UnifiedTelemetry.recordEvent(category: .action, method: method, object: object, value: eventValue)
+    }
+
+    // When using 'Close All', hide all the tabs so they don't animate their deletion individually
+    func hideDisplayedTabs( completion: @escaping () -> Void) {
+        let cells = collectionView.visibleCells
+
+        UIView.animate(withDuration: 0.2,
+                       animations: {
+                            cells.forEach {
+                                $0.alpha = 0
+                            }
+                        }, completion: { _ in
+                            cells.forEach {
+                                $0.alpha = 1
+                                $0.isHidden = true
+                            }
+                            completion()
+                        })
     }
 }
 

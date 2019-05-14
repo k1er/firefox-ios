@@ -33,7 +33,6 @@
 // THE SOFTWARE.
 
 import UIKit
-import Deferred
 import Shared
 import XCGLogger
 
@@ -46,58 +45,18 @@ public class DBOperationCancelled : MaybeErrorType {
     }
 }
 
-class DeferredDBOperation<T>: Deferred<T>, Cancellable {
-    fileprivate var dispatchWorkItem: DispatchWorkItem?
-    private var _running = false
-    private var _cancelled = false
-
+class DeferredDBOperation<T>: CancellableDeferred<T> {
     fileprivate weak var connection: ConcreteSQLiteDBConnection?
 
-    func cancel() {
+    override func cancel() {
         objc_sync_enter(self)
         defer { objc_sync_exit(self) }
 
-        if _running {
+        if running {
             connection?.interrupt()
         }
 
-        let queue = OperationQueue.current?.underlyingQueue
-        queue?.suspend()
-        defer { queue?.resume() }
-
-        dispatchWorkItem?.cancel()
-        _cancelled = true
-    }
-
-    var cancelled: Bool {
-        objc_sync_enter(self)
-        defer { objc_sync_exit(self) }
-        return _cancelled
-    }
-
-    var running: Bool {
-        get {
-            objc_sync_enter(self)
-            defer { objc_sync_exit(self) }
-            return _running
-        }
-        set {
-            objc_sync_enter(self)
-            defer { objc_sync_exit(self) }
-            _running = newValue
-        }
-    }
-    
-    override func fill(_ value: T) {
-        defer {
-            dispatchWorkItem = nil
-        }
-
-        guard !cancelled else {
-            return
-        }
-
-        super.fill(value)
+        super.cancel()
     }
 }
 
@@ -922,9 +881,55 @@ open class ConcreteSQLiteDBConnection: SQLiteDBConnection {
 
     // Developers can manually add a call to this to trace to console.
     func traceOn() {
-        sqlite3_trace(sqliteDB, { _, sql in
-            guard let sql = sql else { return }
-            print(String(cString: sql))
+        let uMask = UInt32(
+            SQLITE_TRACE_STMT |
+            SQLITE_TRACE_PROFILE |
+            SQLITE_TRACE_ROW |
+            SQLITE_TRACE_CLOSE
+        )
+
+        // https://stackoverflow.com/questions/43593618/sqlite-trace-for-logging/43595437
+        sqlite3_trace_v2(sqliteDB, uMask, { (reason, context, p, x) -> Int32 in
+            switch Int32(reason) {
+            case SQLITE_TRACE_STMT:
+                // The P argument is a pointer to the prepared statement.
+                // The X argument is a pointer to a string which is the unexpanded SQL text
+                guard let pStmt = OpaquePointer(p) /*, let cSql = x?.assumingMemoryBound(to: CChar.self) */ else {
+                    return 0
+                }
+
+                // let sql = String(cString: cSql) // The unexpanded SQL text
+                let expandedSql = String(cString: sqlite3_expanded_sql(pStmt)) // The expanded SQL text
+                print("SQLITE_TRACE_STMT:", expandedSql)
+            case SQLITE_TRACE_PROFILE:
+                // The P argument is a pointer to the prepared statement and the X argument points
+                // to a 64-bit integer which is the estimated of the number of nanosecond that the
+                // prepared statement took to run.
+                guard let pStmt = OpaquePointer(p), let duration = x?.load(as: UInt64.self) else {
+                    return 0
+                }
+
+                let milliSeconds = Double(duration)/Double(NSEC_PER_MSEC)
+                let sql = String(cString: sqlite3_sql(pStmt)) // The unexpanded SQL text
+                print("SQLITE_TRACE_PROFILE:", milliSeconds, "ms for statement:", sql)
+            case SQLITE_TRACE_ROW:
+                // The P argument is a pointer to the prepared statement and the X argument is unused.
+                guard let _ = OpaquePointer(p) else {
+                    return 0
+                }
+
+                print("SQLITE_TRACE_ROW")
+            case SQLITE_TRACE_CLOSE:
+                // The P argument is a pointer to the database connection object and the X argument is unused.
+                guard let _ = OpaquePointer(p) else {
+                    return 0
+                }
+
+                print("SQLITE_TRACE_CLOSE")
+            default:
+                break
+            }
+            return 0
         }, nil)
     }
 

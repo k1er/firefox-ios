@@ -6,7 +6,6 @@ import Foundation
 import Shared
 import Storage
 import XCGLogger
-import Deferred
 import SwiftKeychainWrapper
 import SwiftyJSON
 import FxA
@@ -478,7 +477,7 @@ open class FirefoxAccount {
     }
 
     open func availableCommands() -> JSON {
-        guard AppConstants.MOZ_FXA_MESSAGES, let sendTabKey = commandsClient.sendTab.getEncryptedKey() else {
+        guard let sendTabKey = commandsClient.sendTab.getEncryptedKey() else {
             KeychainStore.shared.setDictionary(nil, forKey: "apnsToken")
             return JSON()
         }

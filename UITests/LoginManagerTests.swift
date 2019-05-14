@@ -123,7 +123,7 @@ class LoginManagerTests: KIFTestCase {
 
     fileprivate func clearLogins() {
         let profile = (UIApplication.shared.delegate as! AppDelegate).profile!
-        _ = profile.logins.wipe().value
+        _ = profile.logins.wipeLocal().value
     }
 
     func testListFiltering() {
@@ -190,15 +190,16 @@ class LoginManagerTests: KIFTestCase {
 
     func testListIndexView() {
         openLoginManager()
-
         // Swipe the index view to navigate to bottom section
         tester().waitForAnimationsToFinish()
         tester().waitForView(withAccessibilityLabel: "a0@email.com")
-        tester().swipeView(withAccessibilityIdentifier: "SAVED LOGINS", in: KIFSwipeDirection.down)
-        tester().waitForView(withAccessibilityLabel: "k0@email.com")
+        for _ in 1...6 {
+            EarlGrey.selectElement(with: grey_accessibilityID("Login List")).perform(grey_swipeFastInDirection(.up))
+        }
+        tester().waitForAnimationsToFinish()
+        tester().waitForView(withAccessibilityLabel: "k9@email.com")
         closeLoginManager()
     }
-
 
     func testDetailPasswordMenuOptions() {
         openLoginManager()
@@ -598,21 +599,15 @@ class LoginManagerTests: KIFTestCase {
         let list = tester().waitForView(withAccessibilityIdentifier: "Login Detail List") as! UITableView
         tester().waitForAnimationsToFinish()
         tester().tapView(withAccessibilityLabel: "Edit")
-        // Check that we've selected the website field, editable starting on v16.x
-        var firstResponder = UIApplication.shared.keyWindow?.firstResponder()
-        let websiteCell = list.cellForRow(at: IndexPath(row: 0, section: 0)) as! LoginTableViewCell
-        let websiteField = websiteCell.descriptionLabel
-        XCTAssertEqual(websiteField, firstResponder)
-        tester().waitForAnimationsToFinish()
 
-        // Change username field
-        tester().clearText(fromAndThenEnterText: "changedeusername", intoViewWithAccessibilityIdentifier: "usernameField")
+        // Check that we've selected the username field
+        var firstResponder = UIApplication.shared.keyWindow?.firstResponder()
 
         let usernameCell = list.cellForRow(at: IndexPath(row: 1, section: 0)) as! LoginTableViewCell
         let usernameField = usernameCell.descriptionLabel
-        XCTAssertEqual(usernameField.text, "changedeusername")
+        XCTAssertEqual(usernameField, firstResponder)
+        tester().clearTextFromAndThenEnterText(intoCurrentFirstResponder: "changedusername")
         tester().tapView(withAccessibilityLabel: "Next")
-
         firstResponder = UIApplication.shared.keyWindow?.firstResponder()
         var passwordCell = list.cellForRow(at: IndexPath(row: 2, section: 0)) as! LoginTableViewCell
         let passwordField = passwordCell.descriptionLabel
@@ -621,10 +616,8 @@ class LoginManagerTests: KIFTestCase {
         XCTAssertEqual(passwordField, firstResponder)
         XCTAssertFalse(passwordField.isSecureTextEntry)
 
-        tester().clearText(fromAndThenEnterText: "changedpassword", intoViewWithAccessibilityIdentifier: "passwordField")
+        tester().clearTextFromAndThenEnterText(intoCurrentFirstResponder: "changedpassword")
         tester().tapView(withAccessibilityLabel: "Done")
-        let passwordFieldAfterChange = tester().waitForView(withAccessibilityIdentifier: "passwordField") as! UITextField
-        XCTAssertTrue(passwordFieldAfterChange.isSecureTextEntry)
 
         // Tap the 'Reveal' menu option
         EarlGrey.selectElement(with: grey_accessibilityID("passwordField")).perform(grey_tap())
@@ -746,7 +739,7 @@ class LoginManagerTests: KIFTestCase {
 
         // Check that edit button has been disabled
         tester().wait(forTimeInterval: 1)
-        tester().waitForView(withAccessibilityLabel: "Edit", traits: UIAccessibilityTraitNotEnabled)
+        tester().waitForView(withAccessibilityLabel: "Edit", traits: UIAccessibilityTraits.notEnabled)
 
         closeLoginManager()
     }

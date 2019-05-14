@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0940"
+   LastUpgradeVersion = "1020"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -365,6 +365,9 @@
                   Identifier = "HistoryTests/testClearHistoryFromSettings()">
                </Test>
                <Test
+                  Identifier = "HistoryTests/testClearRecentHistory()">
+               </Test>
+               <Test
                   Identifier = "HistoryTests/testClearRecentlyClosedHistory()">
                </Test>
                <Test
@@ -402,6 +405,15 @@
                </Test>
                <Test
                   Identifier = "IntegrationTests/testFxASyncBookmark()">
+               </Test>
+               <Test
+                  Identifier = "LibraryTest">
+               </Test>
+               <Test
+                  Identifier = "LibraryTestsIpad">
+               </Test>
+               <Test
+                  Identifier = "LibraryTestsIphone">
                </Test>
                <Test
                   Identifier = "MailAppSettingsTests">
@@ -459,6 +471,9 @@
                </Test>
                <Test
                   Identifier = "NewTabSettingsTest/testChangeNewTabSettingsLabel()">
+               </Test>
+               <Test
+                  Identifier = "NewTabSettingsTest/testChangeNewTabSettingsShowFirefoxHome()">
                </Test>
                <Test
                   Identifier = "NewTabSettingsTest/testToggleOffOnAdditionalContentBookmarks()">
